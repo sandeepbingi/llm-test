@@ -1,0 +1,167 @@
+Comparison of Base Model and Fine-Tuned Model Using LoRA
+Overview
+This document describes a Python script that dynamically compares the outputs of a base model and a fine-tuned LoRA model using evaluation metrics such as BLEU, ROUGE, and Perplexity. The script allows users to input prompts and receive responses from both models, followed by an automatic comparison of their quality.
+
+Packages Used and Their Purpose
+Package	Purpose
+torch	Provides tensor computation and GPU acceleration for deep learning models. Used for loading models and inference.
+transformers	From Hugging Face, used to load pre-trained models (AutoModelForCausalLM) and tokenizers (AutoTokenizer).
+peft	Part of Parameter-Efficient Fine-Tuning (PEFT). Used to load and apply LoRA fine-tuned adapters (PeftModel).
+nitk.translate.bleu_score	Computes BLEU Score, which measures how similar the generated text is to a reference answer.
+rouge_score	Computes ROUGE Score, which evaluates text similarity by comparing word overlaps.
+Step-by-Step Explanation of the Script
+1️⃣ Load the Base Model
+python
+Copy
+Edit
+print("\nLoading Base Model...")
+
+# Load base model (FP16 precision for efficiency)
+base_model = AutoModelForCausalLM.from_pretrained(
+    base_model_path, 
+    torch_dtype=torch.float16
+).to("cuda")
+
+# Load tokenizer
+tokenizer = AutoTokenizer.from_pretrained(base_model_path)
+
+print("\nBase Model loaded successfully!")
+🔹 What Happens Here?
+
+Loads the base model from a given path (base_model_path) in FP16 (half-precision) for better GPU efficiency.
+Loads the tokenizer, which converts text to token IDs and vice versa.
+2️⃣ Load the Fine-Tuned LoRA Adapter
+python
+Copy
+Edit
+# Load LoRA fine-tuned adapter
+model = PeftModel.from_pretrained(base_model, fine_tuned_model_path)
+model.to("cuda")
+
+print("\nLoRA fine-tuned model loaded successfully!")
+🔹 What Happens Here?
+
+Loads the LoRA fine-tuned adapter and applies it to the base model.
+Moves the model to GPU for fast inference.
+3️⃣ Merge LoRA Weights into the Base Model
+python
+Copy
+Edit
+model = model.merge_and_unload()
+print("\nLoRA merged successfully!")
+🔹 What Happens Here?
+
+The LoRA adapter weights are merged into the base model, making it a fully fine-tuned model.
+LoRA adapters are removed, and the model behaves as a regular fine-tuned model.
+4️⃣ Define Evaluation Metrics
+BLEU Score Calculation (Measures Similarity to a Reference Answer)
+python
+Copy
+Edit
+def evaluate_bleu(reference, candidate):
+    reference_tokens = reference.split()
+    candidate_tokens = candidate.split()
+    score = sentence_bleu([reference_tokens], candidate_tokens)
+    return score
+🔹 Why Use BLEU?
+
+Higher BLEU Score = Closer to the reference text.
+ROUGE Score Calculation (Measures Word Overlap with Reference Answer)
+python
+Copy
+Edit
+def evaluate_rouge(reference, candidate):
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rougel"], use_stemmer=True)
+    scores = scorer.score(reference, candidate)
+    return scores
+🔹 Why Use ROUGE?
+
+Higher ROUGE Score = More words in common with the reference answer.
+Perplexity Calculation (Measures Model Confidence & Fluency)
+python
+Copy
+Edit
+def calculate_perplexity(model, text):
+    inputs = tokenizer(text, return_tensors="pt").to("cuda")
+    with torch.no_grad():
+        outputs = model(**inputs, labels=inputs["input_ids"])
+        loss = outputs.loss
+    return torch.exp(loss).item()
+🔹 Why Use Perplexity?
+
+Lower Perplexity = More Fluent and Confident Output.
+Higher Perplexity = Model is uncertain about its response.
+5️⃣ Define the Inference Function
+python
+Copy
+Edit
+def generate_text(prompt, model, max_length=500):
+    model.eval()  # Set model to inference mode
+    inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+
+    with torch.no_grad():
+        output = model.generate(
+            **inputs, 
+            max_length=max_length, 
+            generation_config=GenerationConfig(do_sample=True, temperature=0.7)
+        )
+
+    return tokenizer.decode(output[0], skip_special_tokens=True)
+🔹 What Happens Here?
+
+The model is set to evaluation mode (model.eval()).
+The input prompt is tokenized and moved to the GPU.
+Text is generated using a temperature of 0.7 (higher values make responses more random).
+6️⃣ Interactive User Prompt & Model Comparison
+python
+Copy
+Edit
+while True:
+    user_input = input("\nEnter your prompt (or type 'exit' to quit): ")
+    
+    if user_input.lower() == "exit":
+        print("Exiting...")
+        break
+
+    print("\nGenerating responses...\n")
+
+    # Generate response from Base Model
+    base_response = generate_text(user_input, base_model)
+
+    # Generate response from Fine-Tuned Model
+    fine_tuned_response = generate_text(user_input, model)
+
+    print(f"\nBase Model Response:\n{base_response}")
+    print(f"\nFine-Tuned Model Response:\n{fine_tuned_response}")
+🔹 What Happens Here?
+
+The user enters a prompt.
+The script generates two responses:
+Base Model Response (before fine-tuning).
+Fine-Tuned Model Response (after fine-tuning with LoRA).
+The responses are displayed for comparison.
+7️⃣ Evaluate Responses Against a Reference Answer
+python
+Copy
+Edit
+    ref_text = input("\nPlease enter reference text:\n")
+
+    print("\nBase Model BLEU:", evaluate_bleu(ref_text, base_response))
+    print("Fine-Tuned Model BLEU:", evaluate_bleu(ref_text, fine_tuned_response))
+
+    print("\nBase Model ROUGE:", evaluate_rouge(ref_text, base_response))
+    print("Fine-Tuned Model ROUGE:", evaluate_rouge(ref_text, fine_tuned_response))
+
+    print("\nBase Model Perplexity:", calculate_perplexity(base_model, base_response))
+    print("Fine-Tuned Model Perplexity:", calculate_perplexity(model, fine_tuned_response))
+🔹 What Happens Here?
+
+The user enters a reference answer.
+The BLEU, ROUGE, and Perplexity scores are calculated for both models.
+The results indicate whether the fine-tuned model has improved over the base model.
+Final Takeaways
+✅ This script allows users to:
+
+Compare responses from a base model and a fine-tuned LoRA model dynamically.
+Evaluate the quality of responses using BLEU, ROUGE, and Perplexity.
+Determine whether fine-tuning improved the model's performance.
