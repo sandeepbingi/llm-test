@@ -1,0 +1,194 @@
+import streamlit as st
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings, ChatOllama
+from langchain.chains import ConversationalRetrievalChain, LLMChain
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
+
+# Configuration
+persist_directory = "./vectordb/chromadb_login_payment_embeddings"
+CHANNELS = ["XYZ", "PQR"]
+TYPES = ["Logins", "Payments"]
+
+# Streamlit UI
+st.title("📊 Logins & Payments Chatbot with Memory & Analytics")
+st.sidebar.header("Configuration")
+
+# Initialize Embedding Model
+embedding_model = OllamaEmbeddings(model="mistral:instruct")
+
+# Load Vector Database
+vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding_model)
+
+# LLM Initialization
+llm = ChatOllama(model="mistral:instruct", verbose=True)
+
+# Memory for context-aware responses
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+# Extraction Prompt
+extraction_prompt = PromptTemplate(
+    input_variables=["query"],
+    template="""
+Extract the channels and types mentioned in the user's query.
+Return a JSON object in the following format:
+{
+  "channels": ["<extracted_channel1>", "<extracted_channel2>", ...],
+  "types": ["<extracted_type1>", "<extracted_type2>", ...],
+  "plot_requested": true/false
+}
+
+Available channels: {channels}
+Available types: {types}
+
+User Query: {query}
+
+If no specific type is mentioned, assume both "Logins" and "Payments".
+If no valid channels are found, return an empty list for "channels".
+If the user requests a **graph** or **chart**, set `"plot_requested": true`, otherwise false.
+""",
+)
+
+# Define LLMChain for entity extraction
+extraction_chain = LLMChain(llm=llm, prompt=extraction_prompt)
+
+# Conversational RetrievalQA Chain with Memory
+qa_prompt = PromptTemplate(
+    input_variables=["context", "question", "chat_history"],
+    template="""
+You are an assistant with access to login and payment data.
+The document provided contains:
+{context}
+
+Previous Chat History:
+{chat_history}
+
+User Query: {question}
+
+Instructions:
+- Retrieve data **only for the requested channels and types**.
+- If no data is found, respond with "No data available for the requested query."
+- Provide a concise and relevant response.
+
+Answer:
+"""
+)
+
+qa_chain = ConversationalRetrievalChain.from_llm(
+    llm=llm,
+    retriever=vectordb.as_retriever(search_type="mmr"),
+    memory=memory,
+    return_source_documents=True,
+    combine_docs_chain_kwargs={"prompt": qa_prompt},
+)
+
+# Initialize conversation history
+if "conversation_history" not in st.session_state:
+    st.session_state.conversation_history = []
+if "retrieved_data" not in st.session_state:
+    st.session_state.retrieved_data = None
+
+# User Input
+user_query = st.text_input("Ask about logins and payments:")
+
+if st.button("Submit"):
+    if not user_query.strip():
+        st.warning("Please enter a valid query.")
+    else:
+        # Step 1: Extract channels, types & plot request using the LLM
+        extraction_result = extraction_chain.run({
+            "query": user_query,
+            "channels": json.dumps(CHANNELS),
+            "types": json.dumps(TYPES)
+        })
+
+        try:
+            extracted_data = json.loads(extraction_result)
+            extracted_channels = extracted_data.get("channels", [])
+            extracted_types = extracted_data.get("types", [])
+            plot_requested = extracted_data.get("plot_requested", False)
+
+            if not extracted_types:
+                extracted_types = ["Logins", "Payments"]
+
+            st.write(f"**Identified Channels:** {', '.join(extracted_channels) if extracted_channels else 'None'}")
+            st.write(f"**Identified Types:** {', '.join(extracted_types) if extracted_types else 'None'}")
+
+            # Step 2: Apply filters for retrieval
+            filters = {"$and": []}
+            if extracted_channels:
+                filters["$and"].append({"channel": {"$in": extracted_channels}})
+            if extracted_types:
+                filters["$and"].append({"type": {"$in": extracted_types}})
+
+            # If no valid filters, prompt user
+            if not filters["$and"]:
+                response = "Please specify valid channel(s) & type(s). Example: 'Provide hourly logins for XYZ.'"
+                st.session_state.conversation_history.append({"role": "assistant", "content": response})
+            else:
+                # Step 3: Retrieve relevant documents
+                retriever_with_filter = vectordb.as_retriever(search_type="mmr", search_kwargs={"filter": filters})
+                qa_chain.retriever = retriever_with_filter
+
+                result = qa_chain.invoke({"query": user_query})
+                response = result.get("result", "No relevant data found.")
+                source_documents = result.get("source_documents", [])
+
+                # Step 4: Store conversation history
+                st.session_state.conversation_history.append({"role": "user", "content": user_query})
+                st.session_state.conversation_history.append({"role": "assistant", "content": response})
+
+                # Step 5: Store Retrieved Data for Pop-Up
+                if source_documents:
+                    data = []
+                    for doc in source_documents:
+                        metadata = doc.metadata
+                        channel = metadata.get("channel", "Unknown")
+                        data_type = metadata.get("type", "Unknown")
+                        value = metadata.get("count", 0)  # Assuming 'count' field represents the data
+                        timestamp = metadata.get("timestamp", "Unknown")
+
+                        data.append({"Channel": channel, "Type": data_type, "Count": value, "Timestamp": timestamp})
+
+                    st.session_state.retrieved_data = pd.DataFrame(data)
+
+                # Step 6: Generate Plots Only If Requested
+                if plot_requested and source_documents and st.session_state.retrieved_data is not None:
+                    st.subheader("📊 Data Insights")
+                    df = st.session_state.retrieved_data
+
+                    # Line Chart (Trend Over Time)
+                    if "Timestamp" in df.columns:
+                        df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+                        df = df.sort_values("Timestamp")
+
+                        fig, ax = plt.subplots(figsize=(10, 5))
+                        sns.lineplot(data=df, x="Timestamp", y="Count", hue="Channel", style="Type", markers=True, ax=ax)
+                        plt.xticks(rotation=45)
+                        plt.title("Trend Analysis of Logins & Payments")
+                        plt.xlabel("Time")
+                        plt.ylabel("Count")
+                        st.pyplot(fig)
+
+                    # Bar Chart (Aggregated View)
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    sns.barplot(data=df, x="Channel", y="Count", hue="Type", ax=ax)
+                    plt.title("Logins & Payments by Channel")
+                    plt.xlabel("Channel")
+                    plt.ylabel("Count")
+                    st.pyplot(fig)
+
+# Display Retrieved Data in a Pop-Up
+if st.session_state.retrieved_data is not None:
+    with st.expander("📂 View Retrieved Data from Vector DB"):
+        st.dataframe(st.session_state.retrieved_data)
+
+# Display Conversation History
+st.subheader("💬 Conversation History")
+for message in st.session_state.conversation_history:
+    role = "🧑‍💻 You" if message["role"] == "user" else "🤖 Bot"
+    st.markdown(f"**{role}:** {message['content']}")
