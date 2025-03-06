@@ -1,20 +1,20 @@
 import json
 
-def extract_unique_messages(file_path):
+def extract_messages(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         logs = json.load(f)
     
-    # Extract unique messages
-    unique_messages = set()
+    # Extract messages
+    messages = []
     for log in logs:
-        unique_messages.add(log['input']['message'])
+        messages.append(log['input']['message'])
     
-    # Print unique messages
-    print("Unique messages found in logs:")
-    for message in unique_messages:
+    # Print messages
+    print("Messages found in logs:")
+    for message in messages:
         print(f"- {message}")
     
-    return unique_messages
+    return messages
 
 def update_messages_with_mapping(file_path, output_file, message_output_map):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -36,7 +36,7 @@ def update_messages_with_mapping(file_path, output_file, message_output_map):
 if __name__ == "__main__":
     file_path = 'logs.json'
     output_file = 'updated_logs.json'
-    unique_messages = extract_unique_messages(file_path)
+    messages = extract_messages(file_path)
     
     # User should manually map messages to output classifications and provide the dictionary
     message_output_map = {
