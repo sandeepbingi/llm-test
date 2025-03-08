@@ -1,182 +1,155 @@
 import os
-import pandas as pd
 import pickle
+import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
-import seaborn as sns
 from statsmodels.tsa.arima.model import ARIMA
 from fbprophet import Prophet
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Folders for data and models
-data_folder_logins = "data/logins"
-data_folder_payments = "data/payments"
-model_folder = "models"
-processed_files_log = "processed_files.txt"
+# Define directories
+DATA_FOLDER_LOGINS = "data/logins"
+DATA_FOLDER_PAYMENTS = "data/payments"
+MODEL_FOLDER = "models"
+PROCESSED_FILES_TRACKER = "processed_files.txt"
+
+# Ensure model directory exists
+os.makedirs(MODEL_FOLDER, exist_ok=True)
 
 # Static channel list
-CHANNELS = ["QWE", "ABC", "XYZ", "LMN"]  
+CHANNELS = ["ABC", "DEF", "GHI", "JKL", "MNO", "PQR", "QWE", "XYZ"]  # Add your actual channel names
 
-# Create necessary directories
-os.makedirs(model_folder, exist_ok=True)
-
-# Load processed files tracker
+# Function to load processed files
 def load_processed_files():
-    if os.path.exists(processed_files_log):
-        with open(processed_files_log, "r") as f:
+    if os.path.exists(PROCESSED_FILES_TRACKER):
+        with open(PROCESSED_FILES_TRACKER, "r") as f:
             return set(f.read().splitlines())
     return set()
 
-# Save processed files tracker
+# Function to save processed files
 def save_processed_files(processed_files):
-    with open(processed_files_log, "w") as f:
+    with open(PROCESSED_FILES_TRACKER, "w") as f:
         f.write("\n".join(processed_files))
 
-# Load new data while avoiding duplicate processing
-def load_new_data():
+# Function to load new data
+def load_data():
     processed_files = load_processed_files()
     
-    logins_files = [f for f in os.listdir(data_folder_logins) if f not in processed_files]
-    payments_files = [f for f in os.listdir(data_folder_payments) if f not in processed_files]
+    logins_files = [f for f in os.listdir(DATA_FOLDER_LOGINS) if f not in processed_files]
+    payments_files = [f for f in os.listdir(DATA_FOLDER_PAYMENTS) if f not in processed_files]
     
-    logins_df = pd.concat([pd.read_csv(os.path.join(data_folder_logins, f)) for f in logins_files], ignore_index=True) if logins_files else pd.DataFrame()
-    payments_df = pd.concat([pd.read_csv(os.path.join(data_folder_payments, f)) for f in payments_files], ignore_index=True) if payments_files else pd.DataFrame()
-    
-    # Process timestamps
-    for df in [logins_df, payments_df]:
-        if not df.empty:
-            df['timestamp'] = df['timestamp'].astype(str).str.replace(':AM', ' AM').str.replace(':PM', ' PM', regex=False)
-            df['timestamp'] = pd.to_datetime(df['timestamp'], format="%m/%d/%y %I:%M:%S %p", errors='coerce')
+    logins_df = pd.concat([pd.read_csv(os.path.join(DATA_FOLDER_LOGINS, f)) for f in logins_files], ignore_index=True) if logins_files else pd.DataFrame()
+    payments_df = pd.concat([pd.read_csv(os.path.join(DATA_FOLDER_PAYMENTS, f)) for f in payments_files], ignore_index=True) if payments_files else pd.DataFrame()
 
-    # Update processed files tracker
-    processed_files.update(logins_files + payments_files)
-    save_processed_files(processed_files)
+    if not logins_df.empty:
+        logins_df = logins_df.melt(id_vars=['channel'], var_name='timestamp', value_name='count')
+        logins_df['timestamp'] = pd.to_datetime(logins_df['timestamp'], errors='coerce')
 
-    return logins_df, payments_df
+    if not payments_df.empty:
+        payments_df = payments_df.melt(id_vars=['channel'], var_name='timestamp', value_name='count')
+        payments_df['timestamp'] = pd.to_datetime(payments_df['timestamp'], errors='coerce')
 
-# Train or update model incrementally
+    return logins_df, payments_df, logins_files, payments_files, processed_files
+
+# Function to train or update model incrementally
 def train_or_update_model(channel, data_type, data, model_type):
-    model_path = os.path.join(model_folder, f"{channel}_{data_type}_{model_type}.pkl")
+    model_path = os.path.join(MODEL_FOLDER, f"{channel}_{data_type}_{model_type}.pkl")
     
     # Load existing model if available
     if os.path.exists(model_path):
         with open(model_path, "rb") as f:
-            model_data = pickle.load(f)
-            existing_data = model_data['data']
-        
-        # Merge new data, remove duplicates, and sort
+            saved_model = pickle.load(f)
+        existing_data = saved_model['data']
         data = pd.concat([existing_data, data]).drop_duplicates().sort_values('timestamp')
 
-    # Train/update the model
+    # Train or update model
     if model_type == "ARIMA":
         model_instance = ARIMA(data['count'].fillna(0), order=(5,1,0)).fit()
-    else:
+    else:  # Prophet Model
         df = data.rename(columns={'timestamp': 'ds', 'count': 'y'})
         model_instance = Prophet()
         model_instance.fit(df)
-
-    # Save updated model and data
+    
+    # Save the updated model
     with open(model_path, "wb") as f:
         pickle.dump({'model': model_instance, 'data': data}, f)
 
-    return model_instance
-
-# Forecast future data
+# Function to forecast future values
 def forecast(channel, data_type, model_type, future_date):
-    model_path = os.path.join(model_folder, f"{channel}_{data_type}_{model_type}.pkl")
-    
+    model_path = os.path.join(MODEL_FOLDER, f"{channel}_{data_type}_{model_type}.pkl")
     if not os.path.exists(model_path):
-        st.warning(f"No trained model found for {channel} - {data_type} - {model_type}. Train the model first.")
-        return None
+        return None, None
 
     with open(model_path, "rb") as f:
-        model_data = pickle.load(f)
-        model = model_data['model']
+        saved_model = pickle.load(f)
+    
+    model_instance = saved_model['model']
 
-    # Generate future timestamps
     future_dates = pd.date_range(start=future_date, periods=24, freq='H')
-
+    
     if model_type == "ARIMA":
-        forecast_values = model.forecast(24)
-    else:
+        forecast_values = model_instance.forecast(24)
+    else:  # Prophet
         future_df = pd.DataFrame({'ds': future_dates})
-        forecast_values = model.predict(future_df)['yhat']
+        forecast_values = model_instance.predict(future_df)['yhat']
 
-    # Create Forecast DataFrame
-    forecast_df = pd.DataFrame({
-        'Datetime': future_dates,
-        'Forecasted Count': forecast_values,
-        'Channel': channel,
-        'Data Type': data_type
-    })
+    return future_dates, forecast_values
 
-    # Display Forecast Table
-    st.subheader("Forecast Results")
-    st.dataframe(forecast_df)
-
-    # Download Button
-    csv = forecast_df.to_csv(index=False).encode('utf-8')
-    st.download_button("Download Forecast as CSV", csv, "forecast_results.csv", "text/csv")
-
-    return forecast_df
-
-# Main function to run Streamlit UI
+# Main Streamlit UI
 def main():
     st.title("Logins & Payments Forecasting")
 
-    # Load new data
-    logins_df, payments_df = load_new_data()
+    logins_df, payments_df, logins_files, payments_files, processed_files = load_data()
 
-    # Select Channel (Static List)
-    selected_channel = st.selectbox("Select Channel", sorted(CHANNELS), index=0, key="channel_select", help="Choose a channel to forecast.")
-
-    # Select Data Type (Radio Button)
-    data_type = st.radio("Select Data Type", ["Logins", "Payments", "Both"], key="data_type_radio")
-
-    # Select Model Type (Radio Button)
-    model_type = st.radio("Select Model", ["ARIMA", "Prophet"], key="model_type_radio")
-
-    # Input Future Date
-    future_date = st.date_input("Select Future Date", help="Pick a date for forecasting.")
+    selected_channel = st.selectbox("Select Channel", sorted(CHANNELS), index=0, key="channel_dropdown")
+    data_type = st.radio("Select Data Type", ["Logins", "Payments", "Both"])
+    model_type = st.radio("Select Model", ["ARIMA", "Prophet"])
+    future_date = st.date_input("Select Future Date for Forecast")
 
     if st.button("Forecast"):
-        # Train/update models automatically
-        if "Logins" in data_type or "Both" in data_type:
-            if not logins_df.empty:
-                train_or_update_model(selected_channel, "logins", logins_df[logins_df['channel'] == selected_channel], model_type)
+        if data_type in ["Logins", "Both"] and not logins_df.empty:
+            train_or_update_model(selected_channel, "logins", logins_df[logins_df['channel'] == selected_channel], model_type)
         
-        if "Payments" in data_type or "Both" in data_type:
-            if not payments_df.empty:
-                train_or_update_model(selected_channel, "payments", payments_df[payments_df['channel'] == selected_channel], model_type)
+        if data_type in ["Payments", "Both"] and not payments_df.empty:
+            train_or_update_model(selected_channel, "payments", payments_df[payments_df['channel'] == selected_channel], model_type)
 
-        # Forecast results
-        forecast_results = []
-        if "Logins" in data_type or "Both" in data_type:
-            forecast_results.append(forecast(selected_channel, "logins", model_type, future_date))
+        # Update processed files tracker only after successful training
+        processed_files.update(logins_files + payments_files)
+        save_processed_files(processed_files)
 
-        if "Payments" in data_type or "Both" in data_type:
-            forecast_results.append(forecast(selected_channel, "payments", model_type, future_date))
+        # Forecasting
+        forecast_data = []
+        
+        if data_type in ["Logins", "Both"]:
+            dates, values = forecast(selected_channel, "logins", model_type, future_date)
+            if dates is not None:
+                forecast_data.extend(zip(dates, values, ["Logins"] * len(dates)))
 
-        # Plot results if data exists
-        if any(forecast_results):
+        if data_type in ["Payments", "Both"]:
+            dates, values = forecast(selected_channel, "payments", model_type, future_date)
+            if dates is not None:
+                forecast_data.extend(zip(dates, values, ["Payments"] * len(dates)))
+
+        if forecast_data:
+            forecast_df = pd.DataFrame(forecast_data, columns=["Datetime", "Forecasted Count", "Channel"])
+            st.subheader("Forecast Results")
+            st.dataframe(forecast_df)
+
+            # Download button
+            csv = forecast_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download Forecast as CSV", csv, "forecast_results.csv", "text/csv")
+
+            # Plotting
             st.subheader("Trend Visualization")
             plt.figure(figsize=(12, 6))
-            for result in forecast_results:
-                if result is not None:
-                    sns.lineplot(data=result, x='Datetime', y='Forecasted Count', hue='Data Type', marker='o')
-
+            sns.lineplot(data=forecast_df, x='Datetime', y='Forecasted Count', hue='Channel', marker='o')
             plt.xlabel("Datetime")
             plt.ylabel("Count")
-            plt.title(f"Forecasted Trend for {selected_channel}")
+            plt.title("Forecasted Count per Channel")
             plt.xticks(rotation=45)
             st.pyplot(plt)
-
-            # Download Plot
-            plot_path = f"{selected_channel}_forecast_plot.png"
-            plt.savefig(plot_path)
-            with open(plot_path, "rb") as file:
-                st.download_button("Download Plot", file, file_name=plot_path, mime="image/png")
         else:
-            st.warning("No data available for plotting.")
+            st.warning("No data available to display the forecast.")
 
 if __name__ == "__main__":
     main()
