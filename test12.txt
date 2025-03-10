@@ -1,0 +1,537 @@
+Definition: Accuracy measures the percentage of correctly classified instances out of all instances.
+
+Accuracy
+=
+Correct Predictions
+Total Predictions
+Accuracy= 
+Total Predictions
+Correct Predictions
+​
+2. Classification Report
+Definition: The classification report gives us more detailed performance metrics:
+
+Precision: The ratio of true positives to the total predicted positives.
+Formula: 
+Precision
+=
+𝑇
+𝑃
+𝑇
+𝑃
++
+𝐹
+𝑃
+Precision= 
+TP+FP
+TP
+​
+ 
+Recall: The ratio of true positives to the total actual positives.
+Formula: 
+Recall
+=
+𝑇
+𝑃
+𝑇
+𝑃
++
+𝐹
+𝑁
+Recall= 
+TP+FN
+TP
+​
+ 
+F1-Score: The harmonic mean of precision and recall, useful when there’s a class imbalance.
+Formula: 
+𝐹
+1
+=
+2
+×
+Precision
+×
+Recall
+Precision
++
+Recall
+F1=2× 
+Precision+Recall
+Precision×Recall
+​
+
+3. Confusion Matrix
+Definition: The confusion matrix gives a table showing the true vs. predicted classifications for each class. The matrix provides counts for:
+
+True Positives (TP): Correctly predicted labels
+False Positives (FP): Incorrectly predicted as a certain class
+False Negatives (FN): Incorrectly missed instances of a class
+True Negatives (TN): Correctly identified instances as not belonging to a certain class
+
+4. F1-Score
+Definition: The F1-Score is particularly useful when classes are imbalanced, as it considers both precision and recall.
+F1=2× 
+Precision+Recall
+Precision×Recall
+
+6. Recall
+Definition: Recall measures how many of the actual positives were correctly identified.
+Recall=𝑇𝑃/𝑇𝑃+𝐹𝑁
+
+7. Matthews Correlation Coefficient (MCC)
+Definition: The MCC is a metric for binary classification that considers true and false positives, negatives, and gives a score between -1 (total disagreement) and +1 (perfect agreement).
+
+𝑀
+𝐶
+𝐶
+=
+𝑇
+𝑃
+×
+𝑇
+𝑁
+−
+𝐹
+𝑃
+×
+𝐹
+𝑁
+(
+𝑇
+𝑃
++
+𝐹
+𝑃
+)
+(
+𝑇
+𝑃
++
+𝐹
+𝑁
+)
+(
+𝑇
+𝑁
++
+𝐹
+𝑃
+)
+(
+𝑇
+𝑁
++
+𝐹
+𝑁
+)
+MCC= 
+(TP+FP)(TP+FN)(TN+FP)(TN+FN)
+​
+ 
+TP×TN−FP×FN
+​
+8. Cohen’s Kappa Score
+Definition: Cohen's Kappa is a statistic that measures inter-rater agreement. It adjusts for the possibility of the agreement occurring by chance.
+
+𝜅
+=
+𝑃
+𝑜
+−
+𝑃
+𝑒
+1
+−
+𝑃
+𝑒
+κ= 
+1−P 
+e
+​
+ 
+P 
+o
+​
+ −P 
+e
+​
+ 
+​
+ 
+Where:
+
+𝑃
+𝑜
+P 
+o
+​
+  is the observed agreement.
+𝑃
+𝑒
+P 
+e
+​
+  is the expected agreement.
+
+Summary
+Accuracy is the overall percentage of correct predictions.
+Classification Report gives precision, recall, and F1-score for each class.
+Confusion Matrix provides a detailed count of TP, FP, FN, and TN for each class.
+F1-Score combines precision and recall into a single metric.
+Precision and Recall show how well the model identifies positives and avoids false positives and negatives.
+MCC and Cohen’s Kappa provide balanced evaluation metrics for imbalanced datasets.
+
+1. Precision
+Definition: Precision measures how many of the predicted positive instances (e.g., logs classified as ERROR) are actually correct.
+
+Interpretation:
+
+Higher precision indicates that the model is good at making accurate positive predictions (i.e., it does not incorrectly label too many negative cases as positive).
+Important when false positives are costly, for example, in a financial fraud detection system, where an incorrect prediction of fraud can lead to unnecessary investigations.
+Good Precision: High precision means fewer false positives.
+
+Poor Precision: Low precision means a lot of false positives, i.e., the model is incorrectly labeling many non-relevant logs as important (e.g., ERROR when it was INFO).
+
+2. Recall
+Definition: Recall measures how many of the actual positive instances were correctly identified by the model.
+
+Interpretation:
+
+Higher recall means the model is good at identifying all positive instances, but it may have more false positives.
+Important when false negatives are costly, for example, in medical diagnosis, where failing to detect a critical disease (false negative) could have severe consequences.
+Good Recall: High recall means fewer false negatives.
+
+Poor Recall: Low recall means a lot of false negatives, i.e., the model is missing many of the true positive instances (e.g., ERROR logs classified as INFO).
+
+3. F1-Score
+Definition: F1-Score is the harmonic mean of precision and recall. It balances both metrics, providing a more comprehensive evaluation of the model.
+
+Interpretation:
+
+Higher F1 indicates a good balance between precision and recall. It’s particularly useful when you care equally about precision and recall.
+Useful for imbalanced datasets, as it considers both false positives and false negatives.
+Good F1-Score: A high F1 score (close to 1) indicates a balanced model that is both precise and able to detect all positives.
+
+Poor F1-Score: A low F1 score suggests the model is either too focused on precision (missing many positives) or recall (incorrectly identifying too many negatives as positives).
+
+4. Confusion Matrix
+The confusion matrix provides a deeper look into how your model is performing across all classes (INFO, WARNING, ERROR, CRITICAL).
+
+True Positives (TP): The model correctly identified a log as belonging to a specific class.
+
+False Positives (FP): The model incorrectly identified a log as belonging to a class it does not belong to.
+
+False Negatives (FN): The model missed identifying a log of the correct class.
+
+True Negatives (TN): The model correctly identified a log that does not belong to a specific class.
+
+Interpretation:
+
+A high number of TP for each class means the model is good at correctly identifying logs for that class.
+A high number of FP means the model is misclassifying other classes as this one (e.g., many ERROR logs classified as INFO).
+A high number of FN means the model is missing true positives for that class (e.g., many ERROR logs are misclassified as INFO).
+Balanced TP, FP, FN across classes is ideal, but some classes may require more attention depending on the application.
+5. Matthews Correlation Coefficient (MCC)
+Definition: MCC is a balanced measure that takes into account true positives, false positives, true negatives, and false negatives. It is especially useful for imbalanced classes.
+
+Interpretation:
+
+Good MCC: A high MCC (close to 1) indicates good performance, especially when dealing with imbalanced classes.
+Bad MCC: An MCC near 0 suggests random predictions, and negative MCC indicates the model is worse than random guessing.
+Why Use MCC: In cases of imbalanced datasets, where accuracy may be misleading, MCC gives a balanced score and tells you if your model is truly useful or just guessing.
+
+6. Cohen’s Kappa Score
+Definition: Cohen’s Kappa measures the agreement between predicted and actual classifications, adjusting for the possibility of chance agreement.
+
+Interpretation:
+Good Kappa Score: A high score (close to 1) indicates that the agreement between the model’s predictions and actual labels is much better than random chance.
+Bad Kappa Score: A score close to 0 indicates that the model’s predictions are essentially random or no better than chance.
+
+When should we care about each metric?
+Precision: When false positives are more costly (e.g., misclassifying a non-critical log as ERROR).
+Recall: When false negatives are more costly (e.g., missing critical errors or logs).
+F1-Score: When we need a balance between precision and recall, especially in imbalanced datasets.
+MCC: When the dataset is imbalanced and we need a balanced evaluation of performance.
+Kappa: When we need to measure the agreement between the model and the true labels, adjusting for chance.
+
+In Summary:
+Accuracy: Great for balanced classes, but unreliable for imbalanced data.
+Precision and Recall: Focus on these when you care about false positives or false negatives.
+F1-Score: A great overall metric when you need to balance both precision and recall.
+MCC: A good metric for imbalanced datasets, providing a balanced evaluation.
+Kappa: Measures agreement, useful for multi-class classification.
+AUC-ROC: Ideal for evaluating binary classifiers.
+
+Introduction
+
+This document outlines the evaluation metrics used to assess the performance of our fine-tuned LLM for log classification. The model predicts log severity levels (INFO, WARNING, ERROR, CRITICAL) based on structured log data, and its performance is evaluated using various classification metrics.
+
+Evaluation Methodology
+
+Each validation log entry is passed to the fine-tuned model in two ways:
+
+With log_level in the input
+
+Without log_level in the input
+
+For each case, the model's predicted output is compared against the actual log level, and the following evaluation metrics are computed.
+
+Evaluation Metrics
+
+1. Accuracy
+
+Formula:
+
+
+Measures the percentage of correct predictions.
+
+Higher accuracy indicates a better-performing model.
+
+2. Precision
+
+Formula:
+
+
+Precision represents how many of the predicted positive cases are actually correct.
+
+High precision means fewer false positives.
+
+3. Recall (Sensitivity)
+
+Formula:
+
+
+Measures the ability of the model to capture actual positive cases.
+
+High recall means fewer false negatives.
+
+4. F1 Score
+
+Formula:
+
+
+The harmonic mean of precision and recall.
+
+A high F1-score indicates a balance between precision and recall.
+
+5. Confusion Matrix
+
+A confusion matrix provides an overview of model predictions versus actual values.
+
+Actual / Predicted
+
+INFO
+
+WARNING
+
+ERROR
+
+CRITICAL
+
+INFO
+
+TP
+
+FP
+
+FP
+
+FP
+
+WARNING
+
+FN
+
+TP
+
+FP
+
+FP
+
+ERROR
+
+FN
+
+FN
+
+TP
+
+FP
+
+CRITICAL
+
+FN
+
+FN
+
+FN
+
+TP
+
+TP (True Positive): Correct predictions.
+
+FP (False Positive): Incorrectly classified positive cases.
+
+FN (False Negative): Missed positive cases.
+
+6. Matthews Correlation Coefficient (MCC)
+
+Formula:
+
+
+Measures the correlation between actual and predicted classifications.
+
+Values range from -1 (worst) to 1 (best).
+
+7. Cohen’s Kappa Score
+
+Formula:
+
+
+Compares the model’s performance with random chance.
+
+A high Kappa score means strong agreement between predicted and actual values.
+
+
+Conclusion
+
+These evaluation metrics help analyze the performance of the fine-tuned LLM model, ensuring accurate classification of log severity levels. Optimizing for precision, recall, and F1-score is crucial for improving model reliability in real-world scenarios.
+
+
+
+Metric	Purpose
+Accuracy	Overall correctness
+Confusion Matrix	Detailed misclassification breakdown
+Precision & Recall	How well it finds relevant classes
+F1 Score	Balances precision & recall
+MCC	Best for imbalanced datasets
+Cohen’s Kappa	Measures model agreement
+
+
+1. Precision
+Definition: Precision measures how many of the predicted positive instances (e.g., logs classified as ERROR) are actually correct.
+
+Interpretation:
+
+Higher precision indicates that the model is good at making accurate positive predictions (i.e., it does not incorrectly label too many negative cases as positive).
+Important when false positives are costly, for example, in a financial fraud detection system, where an incorrect prediction of fraud can lead to unnecessary investigations.
+Good Precision: High precision means fewer false positives.
+
+Poor Precision: Low precision means a lot of false positives, i.e., the model is incorrectly labeling many non-relevant logs as important (e.g., ERROR when it was INFO).
+
+2. Recall
+Definition: Recall measures how many of the actual positive instances were correctly identified by the model.
+
+Interpretation:
+
+Higher recall means the model is good at identifying all positive instances, but it may have more false positives.
+Important when false negatives are costly, for example, in medical diagnosis, where failing to detect a critical disease (false negative) could have severe consequences.
+Good Recall: High recall means fewer false negatives.
+
+Poor Recall: Low recall means a lot of false negatives, i.e., the model is missing many of the true positive instances (e.g., ERROR logs classified as INFO).
+
+3. F1-Score
+Definition: F1-Score is the harmonic mean of precision and recall. It balances both metrics, providing a more comprehensive evaluation of the model.
+
+Interpretation:
+
+Higher F1 indicates a good balance between precision and recall. It’s particularly useful when you care equally about precision and recall.
+Useful for imbalanced datasets, as it considers both false positives and false negatives.
+Good F1-Score: A high F1 score (close to 1) indicates a balanced model that is both precise and able to detect all positives.
+
+Poor F1-Score: A low F1 score suggests the model is either too focused on precision (missing many positives) or recall (incorrectly identifying too many negatives as positives).
+
+4. Confusion Matrix
+The confusion matrix provides a deeper look into how your model is performing across all classes (INFO, WARNING, ERROR, CRITICAL).
+
+True Positives (TP): The model correctly identified a log as belonging to a specific class.
+
+False Positives (FP): The model incorrectly identified a log as belonging to a class it does not belong to.
+
+False Negatives (FN): The model missed identifying a log of the correct class.
+
+True Negatives (TN): The model correctly identified a log that does not belong to a specific class.
+
+Interpretation:
+
+A high number of TP for each class means the model is good at correctly identifying logs for that class.
+A high number of FP means the model is misclassifying other classes as this one (e.g., many ERROR logs classified as INFO).
+A high number of FN means the model is missing true positives for that class (e.g., many ERROR logs are misclassified as INFO).
+Balanced TP, FP, FN across classes is ideal, but some classes may require more attention depending on the application.
+5. Matthews Correlation Coefficient (MCC)
+Definition: MCC is a balanced measure that takes into account true positives, false positives, true negatives, and false negatives. It is especially useful for imbalanced classes.
+
+Interpretation:
+
+Good MCC: A high MCC (close to 1) indicates good performance, especially when dealing with imbalanced classes.
+Bad MCC: An MCC near 0 suggests random predictions, and negative MCC indicates the model is worse than random guessing.
+Why Use MCC: In cases of imbalanced datasets, where accuracy may be misleading, MCC gives a balanced score and tells you if your model is truly useful or just guessing.
+
+6. Cohen’s Kappa Score
+Definition: Cohen’s Kappa measures the agreement between predicted and actual classifications, adjusting for the possibility of chance agreement.
+
+Interpretation:
+Good Kappa Score: A high score (close to 1) indicates that the agreement between the model’s predictions and actual labels is much better than random chance.
+Bad Kappa Score: A score close to 0 indicates that the model’s predictions are essentially random or no better than chance.
+
+When should we care about each metric?
+Precision: When false positives are more costly (e.g., misclassifying a non-critical log as ERROR).
+Recall: When false negatives are more costly (e.g., missing critical errors or logs).
+F1-Score: When we need a balance between precision and recall, especially in imbalanced datasets.
+MCC: When the dataset is imbalanced and we need a balanced evaluation of performance.
+Kappa: When we need to measure the agreement between the model and the true labels, adjusting for chance.
+​
+
+2. Model Performance Analysis
+2.1 Observations: Model With Log Level
+Metric	Score
+Accuracy	62.74%
+Macro F1 Score	0.5764
+Weighted F1 Score	0.5740
+Precision	0.7048
+Recall	0.6274
+MCC	0.5448
+Cohen’s Kappa	0.5048
+Confusion Matrix Insights (With Log Level)
+INFO logs are classified correctly 100% of the time.
+WARNING logs have a high misclassification rate, with 72 instances misclassified as INFO.
+ERROR logs are often confused with CRITICAL logs (22 misclassified).
+CRITICAL logs are misclassified as ERROR in 32 instances.
+Key Issues Identified:
+
+The presence of log level labels introduces bias, causing the model to misclassify WARNING and CRITICAL logs.
+The model struggles to differentiate between ERROR and CRITICAL logs.
+2.2 Observations: Model Without Log Level
+Metric	Score
+Accuracy	68.82%
+Macro F1 Score	0.6599
+Weighted F1 Score	0.6624
+Precision	0.7435
+Recall	0.6882
+MCC	0.6054
+Cohen’s Kappa	0.5849
+Confusion Matrix Insights (Without Log Level)
+INFO logs still have 100% correct classification.
+WARNING and ERROR logs show significant improvement in classification accuracy.
+CRITICAL log misclassification is reduced but still present.
+Key Improvements Identified:
+
+Removing explicit log levels increases accuracy by 6.08%.
+Better recall and precision scores indicate improved generalization.
+Confusion between WARNING, ERROR, and CRITICAL logs is reduced.
+3. Comparative Analysis: With vs. Without Log Level
+Metric	With Log Level	Without Log Level	Improvement
+Accuracy	62.74%	68.82%	+6.08%
+Macro F1 Score	0.5764	0.6599	+8.35%
+Weighted F1 Score	0.5740	0.6624	+8.84%
+Precision	0.7048	0.7435	+3.87%
+Recall	0.6274	0.6882	+6.08%
+MCC	0.5448	0.6054	+6.06%
+Cohen’s Kappa	0.5048	0.5849	+8.01%
+Key Insights from Comparison:
+✅ Higher accuracy without log levels suggests the model learns from actual message content rather than relying on predefined labels.
+✅ Significantly improved F1-scores indicate better balance between precision and recall.
+✅ Reduced misclassification of WARNING, ERROR, and CRITICAL logs.
+✅ Higher MCC and Cohen’s Kappa suggest better inter-class agreement.
+
