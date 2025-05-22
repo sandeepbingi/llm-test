@@ -1,0 +1,31 @@
+server {
+    listen 8080;
+
+    location /validate_token {
+        content_by_lua_block {
+            local jwt = require "resty.jwt"
+
+            local token = ngx.var.arg_token or
+              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." ..
+              "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvZSIsImlhdCI6MTUxNjIzOTAyMn0." ..
+              "TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ"
+
+            -- Just a placeholder secret to match the token above
+            local secret = "demo-secret"
+
+            local jwt_obj = jwt:verify(secret, token)
+
+            if jwt_obj.verified then
+                ngx.say("✅ Demo: Token is valid")
+            else
+                ngx.status = 401
+                ngx.say("❌ Demo: Invalid token - ", jwt_obj.reason)
+            end
+        }
+    }
+}
+
+curl "http://your-server:8080/validate_token"
+
+curl "http://your-server:8080/validate_token?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvZSIsImlhdCI6MTUxNjIzOTAyMn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ"
+
