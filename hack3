@@ -1,0 +1,176 @@
+# Simplified ForecastX App (Logins only)
+import os
+import io
+import json
+import pandas as pd
+import pickle
+import streamlit as st
+from prophet import Prophet
+import plotly.express as px
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import seaborn as sns
+from PIL import Image
+import logging
+
+# Setup logging
+logging.getLogger("streamlit").setLevel(logging.ERROR)
+logging.basicConfig(
+    filename="forecastx.log", level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+# Set paths and configuration
+DATA_FOLDER = "C:/Users/Desktop/Logins_Payments_LLM/ForecastX/Hackathon"
+DATA_HYPERPARAMETERS = "C:/Users/Desktop/Logins_Payments_LLM/ForecastX/hyperparameters_forecast.json"
+MODEL_FOLDER = "/hack/forecast_models"
+TRACKING_FOLDER = "/hack/tracking_files"
+CHANNELS_LIST = ['Web', 'IOS', 'Android']
+
+os.makedirs(MODEL_FOLDER, exist_ok=True)
+os.makedirs(TRACKING_FOLDER, exist_ok=True)
+
+# Streamlit UI setup
+im = Image.open('./images/app_icon.png')
+st.set_page_config(page_title="xyz ForecastX", page_icon=im)
+st.sidebar.image('./images/xyz-logo.png')
+
+st.title("Logins Forecasting")
+selected_channel = st.selectbox("Select Channel", sorted(CHANNELS_LIST))
+future_date = st.date_input("Select Future Date for Forecast")
+
+def get_tracking_file(channel):
+    return os.path.join(TRACKING_FOLDER, f"processed_files_{channel}_logins.pkl")
+
+def load_processed_files(channel):
+    tracking_file = get_tracking_file(channel)
+    if os.path.exists(tracking_file):
+        with open(tracking_file, "rb") as f:
+            return pickle.load(f)
+    return set()
+
+def save_processed_files(channel, processed_files):
+    tracking_file = get_tracking_file(channel)
+    with open(tracking_file, "wb") as f:
+        pickle.dump(processed_files, f)
+
+def process_folder(folder, channel):
+    processed_files = load_processed_files(channel)
+    files = set(os.listdir(folder))
+    new_files = files - processed_files
+    if not new_files:
+        return pd.DataFrame()
+
+    df_list = []
+    for file in new_files:
+        file_path = os.path.join(folder, file)
+        try:
+            df = pd.read_csv(file_path)
+            df_long = df.melt(id_vars=['Channel'], var_name='timestamp', value_name='count')
+            df_long['timestamp'] = df_long['timestamp'].str.replace(':AM', ' AM').str.replace(': PM', ' PM')
+            df_long['timestamp'] = pd.to_datetime(df_long['timestamp'], format="%m/%d/%y %I:%M:%S %p", errors="coerce")
+            df_list.append(df_long)
+        except Exception as e:
+            logging.error(f"Error processing file {file}: {e}")
+
+    processed_files.update(new_files)
+    data = pd.concat(df_list, ignore_index=True) if df_list else pd.DataFrame()
+    channel_data = data[data['Channel'] == channel]
+    if not channel_data.empty:
+        save_processed_files(channel, processed_files)
+    return data
+
+def train_or_update_model(channel, data):
+    model_path = os.path.join(MODEL_FOLDER, f"{channel}_logins_Prophet.pkl")
+    data = data[data['Channel'] == channel]
+    if data.empty:
+        st.warning(f"No data available for training {channel}. Skipping training.")
+        return False
+
+    if os.path.exists(model_path):
+        with open(model_path, "rb") as f:
+            model_data = pickle.load(f)
+            existing_data = model_data['data']
+            data = pd.concat([existing_data, data]).drop_duplicates().sort_values('timestamp')
+
+    df = data.rename(columns={'timestamp': 'ds', 'count': 'y'})
+    df['y'] = df['y'].fillna(0)
+
+    with open(DATA_HYPERPARAMETERS, "r") as file:
+        hyperparameters = json.load(file)
+
+    params = hyperparameters.get(channel, {}).get("logins", {})
+
+    try:
+        model = Prophet(**{k: v for k, v in params.items() if "fourier_order" not in k})
+        if "hourly_fourier_order" in params:
+            model.add_seasonality(name='hourly', period=24, fourier_order=params["hourly_fourier_order"])
+        if "weekly_fourier_order" in params:
+            model.add_seasonality(name='weekly', period=7, fourier_order=params["weekly_fourier_order"])
+        if "monthly_fourier_order" in params:
+            model.add_seasonality(name='monthly', period=30, fourier_order=params["monthly_fourier_order"])
+        model.fit(df)
+        with open(model_path, "wb") as f:
+            pickle.dump({'model': model, 'data': data}, f)
+        return True
+    except Exception as e:
+        logging.error(f"Model training failed for {channel}: {e}")
+        return False
+
+def forecast(channel, future_date):
+    model_path = os.path.join(MODEL_FOLDER, f"{channel}_logins_Prophet.pkl")
+    if not os.path.exists(model_path):
+        return None, None
+    with open(model_path, "rb") as f:
+        model_data = pickle.load(f)
+    model = model_data['model']
+    future_dates = pd.date_range(start=future_date, periods=25, freq='h')
+    future_df = pd.DataFrame({'ds': future_dates})
+    forecast_values = model.predict(future_df)['yhat']
+    forecast_values = [max(0, round(value)) for value in forecast_values]
+    return future_dates, forecast_values
+
+if st.button("Forecast"):
+    st.session_state['forecast_clicked'] = True
+    with st.spinner("Generating Forecast... Please wait..."):
+        logins_data = process_folder(DATA_FOLDER, selected_channel)
+        if not logins_data.empty:
+            train_or_update_model(selected_channel, logins_data)
+        dates, values = forecast(selected_channel, future_date)
+        if dates is not None and values is not None:
+            forecast_df = pd.DataFrame({
+                'Channel': selected_channel,
+                'Datetime': dates,
+                'Forecasted Count': values
+            })
+            st.session_state.forecast_df = forecast_df
+
+if st.session_state.get("forecast_clicked", False):
+    if st.session_state.get("forecast_df") is not None:
+        forecast_df = st.session_state.forecast_df
+        st.subheader("Forecast Results")
+        csv = forecast_df.to_csv(index=False).encode('utf-8')
+        filename = f"forecast_results_{selected_channel}_{future_date}.csv"
+        st.download_button("Download CSV", csv, filename, "text/csv")
+        st.dataframe(forecast_df)
+
+        st.subheader("Trend Visualization")
+        fig, ax = plt.subplots(figsize=(12,6))
+        sns.lineplot(data=forecast_df, x='Datetime', y='Forecasted Count', marker='o', ax=ax)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+        plt.title(f"Forecasting Trend - {selected_channel} : {future_date}")
+        plt.xlabel("Time")
+        plt.ylabel("Count")
+        plt.grid(alpha=0.25)
+        plt.xticks(rotation=45)
+        st.pyplot(fig)
+
+        fig2 = px.line(
+            forecast_df,
+            x="Datetime",
+            y="Forecasted Count",
+            markers=True,
+            title=f"Forecasting Trend - {selected_channel} : {future_date}"
+        )
+        fig2.update_layout(template="plotly_dark")
+        st.plotly_chart(fig2, use_container_width=True)
