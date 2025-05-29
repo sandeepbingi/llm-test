@@ -1,0 +1,31 @@
+import sagemaker
+from sagemaker.sklearn.estimator import SKLearn
+from datetime import datetime
+
+# Define settings
+role = 'arn:aws:iam::<your-account-id>:role/SageMakerForecastXRole'  # REPLACE with your actual SageMaker role ARN
+bucket_script = 'automindshackathonutilities'
+bucket_data = 'automindshackathondatasets'
+entry_point = 'train_forecast.py'
+
+# Define the estimator
+estimator = SKLearn(
+    entry_point=entry_point,
+    source_dir=f's3://{bucket_script}/ForecastX/code',
+    role=role,
+    instance_type='ml.m5.large',
+    framework_version='0.23-1',
+    py_version='py3',
+    output_path=f's3://{bucket_script}/ForecastX/Models/',
+    base_job_name='forecastx'
+)
+
+# Launch the training job
+estimator.fit({
+    'bucket': bucket_data,
+    'data_prefix': 'ForecastX/Data/',
+    'channel': 'myxyz-ios',
+    'tracking_key': 'ForecastX/Tracking/myxyz-ios-tracking.pkl',
+    'hyperparams_key': 'ForecastX/hyperparameters_forecast.json',
+    'model_key': 'ForecastX/Models/myxyz-ios_prophet.pkl'
+})
