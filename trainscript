@@ -1,0 +1,92 @@
+# train_forecast.py
+
+import argparse
+import os
+import boto3
+import pickle
+import pandas as pd
+import json
+from prophet import Prophet
+from io import BytesIO
+
+def read_csv_from_s3(bucket, key):
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    return pd.read_csv(BytesIO(obj["Body"].read()))
+
+def load_processed_files(bucket, key):
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        return set(pickle.loads(obj["Body"].read()))
+    except s3.exceptions.NoSuchKey:
+        return set()
+
+def save_processed_files(bucket, key, processed_files):
+    s3 = boto3.client("s3")
+    s3.put_object(Bucket=bucket, Key=key, Body=pickle.dumps(processed_files))
+
+def load_hyperparameters(bucket, key):
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    return json.load(obj["Body"])
+
+def train_model(channel, df, hyperparams, output_path):
+    df = df.rename(columns={"timestamp": "ds", "count": "y"})
+    df["y"] = df["y"].fillna(0)
+    params = hyperparams.get(channel, {})
+    model = Prophet(**{k: v for k, v in params.items() if "fourier_order" not in k})
+
+    if "hourly_fourier_order" in params:
+        model.add_seasonality("hourly", 24, params["hourly_fourier_order"])
+    if "weekly_fourier_order" in params:
+        model.add_seasonality("weekly", 7, params["weekly_fourier_order"])
+    if "monthly_fourier_order" in params:
+        model.add_seasonality("monthly", 30, params["monthly_fourier_order"])
+
+    model.fit(df)
+    with open(output_path, "wb") as f:
+        pickle.dump({"model": model, "data": df}, f)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bucket", type=str)
+    parser.add_argument("--data_prefix", type=str, default="")
+    parser.add_argument("--channel", type=str)
+    parser.add_argument("--tracking_key", type=str)
+    parser.add_argument("--hyperparams_key", type=str)
+    parser.add_argument("--model_key", type=str)
+    args = parser.parse_args()
+
+    s3 = boto3.client("s3")
+    prefix = args.data_prefix if args.data_prefix else ""
+    files = s3.list_objects_v2(Bucket=args.bucket, Prefix=prefix).get("Contents", [])
+    file_keys = [f["Key"] for f in files if f["Key"].endswith(".csv")]
+
+    processed_files = load_processed_files(args.bucket, args.tracking_key)
+    new_files = set(file_keys) - processed_files
+
+    if not new_files:
+        print("No new files. Exiting.")
+        exit(0)
+
+    df_list = []
+    for key in new_files:
+        df = read_csv_from_s3(args.bucket, key)
+        df_long = df.melt(id_vars=["Channel"], var_name="timestamp", value_name="count")
+        df_long["timestamp"] = pd.to_datetime(df_long["timestamp"], errors="coerce")
+        df_list.append(df_long)
+
+    data = pd.concat(df_list, ignore_index=True)
+    data = data[data["Channel"] == args.channel]
+
+    if data.empty:
+        print(f"No data found for channel: {args.channel}. Exiting.")
+        exit(0)
+
+    hyperparams = load_hyperparameters(args.bucket, args.hyperparams_key)
+    os.makedirs("/opt/ml/model", exist_ok=True)
+    train_model(args.channel, data, hyperparams, "/opt/ml/model/model.pkl")
+
+    processed_files.update(new_files)
+    save_processed_files(args.bucket, args.tracking_key, processed_files)
