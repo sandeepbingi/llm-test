@@ -1,0 +1,90 @@
+# app.py
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import boto3
+import json
+import pickle
+import io
+from datetime import datetime
+
+# AWS setup
+BUCKET = "your-s3-bucket-name"
+DATA_PREFIX = "ForecastX/Data"
+MODEL_PREFIX = "ForecastX/Models"
+TRACKING_PREFIX = "ForecastX/Tracking"
+HYPERPARAMS_KEY = "ForecastX/forecastx_hyperparameters.json"
+REGION = "us-east-1"
+BEDROCK_MODEL_ID = "anthropic.claude-3-sonnet-20240229-v1:0"
+
+s3 = boto3.client("s3")
+bedrock = boto3.client("bedrock-runtime", region_name=REGION)
+
+CHANNELS = ["myxyz-ios", "myxyz-android", "Commercial-Servicing", "Total"]
+
+st.set_page_config(page_title="ForecastX", layout="wide")
+st.title("📈 ForecastX – Channel Forecasting with AI Summary")
+
+channel = st.selectbox("Select Channel", sorted(CHANNELS))
+future_date = st.date_input("Select Future Date for Forecast")
+
+def download_model(channel):
+    key = f"{MODEL_PREFIX}/{channel}_prophet.pkl"
+    try:
+        response = s3.get_object(Bucket=BUCKET, Key=key)
+        model_data = pickle.loads(response['Body'].read())
+        return model_data["model"]
+    except Exception as e:
+        st.error(f"Model for {channel} not found. Error: {e}")
+        return None
+
+def run_forecast(model, date):
+    future_dates = pd.date_range(start=date, periods=25, freq="H")
+    future_df = pd.DataFrame({"ds": future_dates})
+    forecast = model.predict(future_df)
+    forecast["Forecasted Count"] = forecast["yhat"].apply(lambda x: max(0, round(x)))
+    forecast["Datetime"] = forecast["ds"]
+    return forecast[["Datetime", "Forecasted Count"]]
+
+def summarize_forecast(forecast_df, channel, date):
+    table_text = forecast_df.to_string(index=False)
+    prompt = f"""
+You are an expert analyst. Summarize this forecast for the channel '{channel}' on {date}:
+
+{table_text}
+
+Provide 2–3 insightful sentences about usage patterns, peak times, and trends.
+"""
+    body = json.dumps({
+        "anthropic_version": "bedrock-2023-05-31",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 300,
+        "temperature": 0.7
+    })
+
+    response = bedrock.invoke_model(
+        modelId=BEDROCK_MODEL_ID,
+        body=body,
+        contentType="application/json",
+        accept="application/json"
+    )
+
+    result = json.loads(response["body"].read())
+    return result["content"][0]["text"]
+
+if st.button("📊 Forecast"):
+    model = download_model(channel)
+    if model:
+        st.success(f"Model loaded for {channel}")
+        forecast_df = run_forecast(model, future_date)
+        st.subheader("Forecast Table")
+        st.dataframe(forecast_df)
+
+        st.subheader("Forecast Visualization")
+        fig = px.line(forecast_df, x="Datetime", y="Forecasted Count", markers=True)
+        st.plotly_chart(fig, use_container_width=True)
+
+        with st.spinner("Generating summary with Bedrock Claude 3.5..."):
+            summary = summarize_forecast(forecast_df, channel, future_date)
+        st.subheader("🧠 AI Summary")
+        st.markdown(summary)
