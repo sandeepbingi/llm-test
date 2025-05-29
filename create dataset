@@ -1,0 +1,41 @@
+import os
+import pandas as pd
+import re
+
+# Input and output folder paths
+input_folder = "path_to_input_folder"
+output_folder = "path_to_output_folder"
+
+# Make sure output folder exists
+os.makedirs(output_folder, exist_ok=True)
+
+# Channel renaming map
+channel_rename_map = {
+    "YPI": "Web",
+    "xyz-ios": "IOS",
+    "xyz-android": "Android"
+}
+
+# Regex to extract the date from the filename
+pattern = r"Digital_Hourly_Login_Statistics-(\d{4}-\d{2}-\d{2})\.csv"
+
+# Loop through input folder
+for filename in os.listdir(input_folder):
+    match = re.match(pattern, filename)
+    if match:
+        date_str = match.group(1)
+
+        input_path = os.path.join(input_folder, filename)
+        output_filename = f"Hourly_Volume_Statistics-{date_str}.csv"
+        output_path = os.path.join(output_folder, output_filename)
+
+        # Load CSV
+        df = pd.read_csv(input_path)
+
+        # Filter and rename
+        df_filtered = df[df['Channel'].isin(channel_rename_map)].copy()
+        df_filtered['Channel'] = df_filtered['Channel'].map(channel_rename_map)
+
+        # Save to new file
+        df_filtered.to_csv(output_path, index=False)
+        print(f"Processed and saved: {output_filename}")
