@@ -1,0 +1,25 @@
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+def check_bedrock_access():
+    try:
+        client = boto3.client('bedrock', region_name='us-east-1')  # Use your Bedrock-supported region
+
+        # Try listing available models
+        response = client.list_foundation_models()
+        models = response.get('modelSummaries', [])
+
+        print(f"Found {len(models)} models:")
+        for model in models:
+            print(f"- {model['modelId']} ({model['providerName']})")
+
+        print("\n✅ Bedrock is accessible from this EC2 instance.")
+    except ClientError as e:
+        print(f"Client error: {e}")
+    except BotoCoreError as e:
+        print(f"BotoCore error: {e}")
+    except Exception as e:
+        print(f"General error: {e}")
+
+if __name__ == "__main__":
+    check_bedrock_access()
