@@ -1,0 +1,159 @@
+
+# Enterprise Scoop Bucket Setup Guide
+
+## Overview
+
+This guide helps you set up a **private enterprise Scoop bucket** on Windows to allow developers to install approved software independently without raising installation requests.
+
+---
+
+## 1. Prepare Your Local Scoop Bucket Directory
+
+Create a folder structure for your bucket:
+
+```powershell
+mkdir C:\scoop-buckets\enterprise-bucket\bucket
+```
+
+- `enterprise-bucket` is the root of your bucket repository.
+- `bucket` is where manifest JSON files will reside.
+
+---
+
+## 2. Create Manifest JSON Files for Applications
+
+Manifests describe how Scoop installs software.
+
+### Example: Notepad++ Manifest (`notepadapp.json`)
+
+Create and edit the file:
+
+```powershell
+notepad "C:\scoop-buckets\enterprise-bucket\bucket\notepadapp.json"
+```
+
+Paste:
+
+```json
+{
+  "version": "8.6.6",
+  "description": "Free source code editor and Notepad replacement",
+  "homepage": "https://notepad-plus-plus.org/",
+  "license": "GPL-3.0-or-later",
+  "url": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.6/npp.8.6.6.Installer.x64.exe",
+  "hash": "b03d9ed51c1851c636174e45be0cbd197a896084423fde8bc23fc64b7a72ce28",
+  "installer": {
+    "innosetup": true
+  },
+  "notes": "Notepad++ is installed globally and won't be symlinked to Scoop apps folder."
+}
+```
+
+Save and close.
+
+---
+
+## 3. Add Your Bucket to Scoop
+
+Register your bucket locally:
+
+```powershell
+scoop bucket add local-enterprise-bucket file:///C:/scoop-buckets/enterprise-bucket
+```
+
+---
+
+## 4. Install Applications from Your Bucket
+
+Use Scoop to install apps:
+
+```powershell
+scoop install notepadapp
+```
+
+---
+
+## 5. (Optional) Create Shims for Global Apps
+
+Create a command-line shortcut for apps installed outside Scoop folders:
+
+```powershell
+New-Item -ItemType SymbolicLink `
+  -Path "$env:SCOOP\shims\notepadpp.exe" `
+  -Target "C:\Program Files\Notepad++\notepad++.exe"
+```
+
+---
+
+## 6. Add More Applications
+
+For each new app:
+
+- Create a JSON manifest inside the `bucket` folder.
+- Use the appropriate `url`, `version`, `hash`, and installer instructions.
+- Use `"installer": {"innosetup": true}` for `.exe` installers.
+- Use `"bin"` and `"shortcuts"` keys for portable `.zip` apps.
+
+---
+
+## 7. (Optional) Host Your Bucket in Git
+
+Make your bucket accessible organization-wide:
+
+```powershell
+cd C:\scoop-buckets\enterprise-bucket
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/your-org/enterprise-scoop-bucket.git
+git push -u origin master
+```
+
+Other developers add bucket via:
+
+```powershell
+scoop bucket add enterprise https://github.com/your-org/enterprise-scoop-bucket.git
+```
+
+---
+
+## 8. (Optional) Automate Manifest Creation & Hash Calculation
+
+PowerShell snippet to download installer and get SHA256 hash:
+
+```powershell
+$url = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.6/npp.8.6.6.Installer.x64.exe"
+$output = "C:\temp\npp-installer.exe"
+Invoke-WebRequest -Uri $url -OutFile $output
+$hash = Get-FileHash $output -Algorithm SHA256
+Write-Host "Hash: $($hash.Hash)"
+```
+
+Use the hash value to update your manifest file.
+
+---
+
+# Summary Checklist
+
+| Step | Action                          | Command/Description                                  |
+|-------|--------------------------------|-----------------------------------------------------|
+| 1     | Create bucket folder structure | `mkdir C:\scoop-buckets\enterprise-bucket\bucket` |
+| 2     | Create manifest JSONs           | Use text editor or script to create `.json` files    |
+| 3     | Add bucket to Scoop             | `scoop bucket add local-enterprise-bucket file:///C:/scoop-buckets/enterprise-bucket` |
+| 4     | Install apps                   | `scoop install notepadapp`                            |
+| 5     | (Optional) Create shims         | `New-Item -ItemType SymbolicLink ...`                 |
+| 6     | Add more apps                  | Repeat Step 2 for each app                            |
+| 7     | (Optional) Host on Git          | `git init` & push                                    |
+| 8     | (Optional) Automate manifest creation | PowerShell scripting                                  |
+
+---
+
+Feel free to reach out if you want:
+
+- Sample working bucket with manifests
+- PowerShell script to automate manifest creation
+- Guidance on creating macOS Homebrew Tap for cross-platform setup
+
+---
+
+*Empowering your developers with self-service software installs increases productivity, security, and agility.* 🌱🌍
