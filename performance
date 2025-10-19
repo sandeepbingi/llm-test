@@ -1,0 +1,36 @@
+Career Development Priorities
+1. Technical Expertise:
+* Enhance skills in NGINX WebSocket configuration and reverse proxy setups to handle real-time communication effectively.
+* Gain deeper knowledge of SSL/TLS security configurations and WebSocket protocols for secure and efficient communication.
+* Strengthen expertise in CloudBees pipelines and Deploy for automated deployments and CI/CD processes.
+2. Infrastructure Management:
+* Develop advanced skills in server provisioning and environment isolation (Dev, QA, Prod) to ensure scalability, security, and compliance.
+* Learn best practices for managing NAS mounts and ensuring environment-specific configurations.
+3. Monitoring and Observability:
+* Build expertise in log management and monitoring tools like Splunk.
+* Learn to create custom dashboards and configure alerts for proactive issue detection and resolution.
+4. Automation and Scripting:
+* Improve scripting skills to automate repetitive tasks, such as creating NGINX startup scripts and deployment pipelines.
+* Explore advanced automation tools to further streamline the deployment process.
+5. Collaboration and Handover:
+* Enhance collaboration skills to work effectively with cross-functional teams (e.g., DevOps, Run teams).
+* Develop documentation and knowledge transfer skills to ensure smooth handover of ownership.
+Measure of Success
+1. Infrastructure Setup:
+* Successful provisioning of new servers for Dev, QA, and Prod environments, ensuring high availability and scalability.
+* Proper isolation of environments using separate NAS mounts, with no data overlap or security issues.
+2. WebSocket Configuration:
+* NGINX WebSocket proxy successfully handles real-time traffic for the OnePay Walmart Application without performance bottlenecks.
+* WebSocket connectivity validated via external tools (e.g., Postman) with no connectivity issues.
+3. Automation:
+* CloudBees pipelines and Deploy agents are fully functional, enabling seamless deployment of NGINX configurations across all environments.
+* Automatic NGINX startup scripts work reliably on all servers.
+4. Monitoring and Alerts:
+* Splunk logs are onboarded for all environments, and the ngin_wehsocket logs_monitoring_dashboard provides real-time insights.
+* Alerts are configured in Splunk to notify the team of any anomalies or issues.
+5. Operational Handover:
+* Ownership successfully handed over to the Run team, with all documentation and processes in place for smooth operations.
+* Minimal post-handover issues reported, indicating a successful transition.
+6. Business Impact:
+* The infrastructure and WebSocket configuration improve the performance and reliability of the OnePay Walmart Application, leading to enhanced user experience.
+* The project is delivered on time and meets all client requirements, contributing to overall client satisfaction.
