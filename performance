@@ -15,3 +15,21 @@ CloudBees Pipelines: Automating NGINX configuration deployment ensures consisten
 * Validation: Testing WebSocket connectivity using tools like Postman ensures the solution is robust and meets client expectations.
 6. Ownership and Handover
 * The handover of ownership to the Run team ensures smooth operational continuity, which is a critical aspect of delivery quality.
+
+
+Career Development Priorities
+* LLM Fine-Tuning Expertise: Enhance skills in fine-tuning large language models (LLMs) using frameworks like DeepSpeed and
+LORA, focusing on optimizing performance for specific business use cases.
+•
+* Data Preprocessing: Strengthen expertise in data preprocessing techniques to improve the quality of training datasets for LLM fine-tuning.
+* Machine Learning Forecasting: Deepen knowledge in time series forecasting using machine learning models like Prophet and
+ARIMA for predicting trends in logins and payments.
+* Model Evaluation and Deployment: Build proficiency in evaluating fine-tuned models and deploying them for real-world use cases,
+ensuring scalability and reliability.
+* Documentation and Knowledge Sharing: Develop skills in creating detailed, reusable documentation and publishing findings on platforms like Confluence to foster collaboration and knowledge sharing.
+Measure of Success
+* LLM Fine-Tuning: Successfully fine-tune LLMs for specific business use cases, achieving measurable improvements in performance (e.g., accuracy, latency). Publish findings on DeepSpeed & LoRA, data preprocessing, and model evaluation to guide future projects.
+* ForecastX Application: Deliver actionable insights through the ForecastX application, improving forecast accuracy for logins and payments by at least 15%. Demonstrate the business impact through stakeholder feedback and adoption of the application.
+* Documentation: Publish comprehensive and reusable documentation on Confluence for all projects, including installation steps, model evaluation reports, and forecasting methodologies. Measure success by the number of views, feedback, and reuse by other teams.
+* Collaboration: Facilitate cross-functional collaboration by presenting findings and demos to stakeholders, ensuring alignment with búsiness goals. Success is reflected in positive feedback and the adoption of proposed solutions.
+* Scalability: Ensure that all models and applications are scalable and adaptable to future business needs, validated by their successful deployment in production environments.
