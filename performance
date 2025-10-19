@@ -33,3 +33,15 @@ Measure of Success
 * Documentation: Publish comprehensive and reusable documentation on Confluence for all projects, including installation steps, model evaluation reports, and forecasting methodologies. Measure success by the number of views, feedback, and reuse by other teams.
 * Collaboration: Facilitate cross-functional collaboration by presenting findings and demos to stakeholders, ensuring alignment with búsiness goals. Success is reflected in positive feedback and the adoption of proposed solutions.
 * Scalability: Ensure that all models and applications are scalable and adaptable to future business needs, validated by their successful deployment in production environments.
+
+
+
+Career Development Priorities
+* Strengthen expertise in developer experience (DevEx) by streamlining software delivery pipelines and automating binary validation
+and deployment processes.
+* Enhance skills in CloudBees pipeline automation and parameterized configurations to support multi-platform software distribution.
+•Gain proficiency in S3 sync operations, Nexus Repository integration, and managing CIFS shares for efficient software delivery.
+* Develop collaboration skills to align technical solutions with developer needs and improve overall productivity.
+Measure of Success
+The CloudBees pipeline is successfully updated to dynamically handle software binaries for different platforms and versions, reducing
+-software installation time for developers from days to minutes. Success is measured by the adoption of the Homebrew setup by developers, positive feedback on the improved experience, and the pipeline's ability to validate and upload binaries to the Nexus Repository seamlessly. The solution enhances developer productivity by enabling instant access to business-approved software, ensuring scalability and adaptability for future requirements.
