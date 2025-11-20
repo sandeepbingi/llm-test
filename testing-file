@@ -1,0 +1,97 @@
+{
+  "queries": [
+    {
+      "channel": "ChannelA",
+      "type": "Transaction",
+      "nrql": "SELECT average(duration) FROM Transaction WHERE appName='AppA' SINCE 1 hour ago",
+      "account_id": "ACCOUNT_ID_A",
+      "api_key": "API_KEY_A",
+      "nas_path": "\\\\NAS-SHARE\\NewRelicData\\ChannelA"
+    },
+    {
+      "channel": "ChannelB",
+      "type": "Error",
+      "nrql": "SELECT count(*) FROM Transaction WHERE error IS true SINCE 1 hour ago",
+      "account_id": "ACCOUNT_ID_B",
+      "api_key": "API_KEY_B",
+      "nas_path": "\\\\NAS-SHARE\\NewRelicData\\ChannelB"
+    }
+    // ... add all other queries
+  ]
+}
+
+
+import requests
+import csv
+import json
+import os
+import time
+from datetime import datetime
+import logging
+
+# ---------------- Logging ----------------
+logging.basicConfig(
+    filename='nrql_export.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+# ---------------- Load Config ----------------
+with open("nr_config.json") as f:
+    config = json.load(f)
+
+QUERIES = config["queries"]
+
+# ---------------- Helper Function ----------------
+def call_nrql(api_key, account_id, query, retries=3, wait=5):
+    url = f"https://insights-api.newrelic.com/v1/accounts/{account_id}/query"
+    headers = {"X-Query-Key": api_key}
+    params = {"nrql": query}
+
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            if response.status_code == 200:
+                return response.json().get("results", [])
+            else:
+                logging.warning(f"Attempt {attempt}: HTTP {response.status_code}")
+        except Exception as e:
+            logging.error(f"Attempt {attempt}: Exception {e}")
+        time.sleep(wait)
+    return None
+
+# ---------------- Main Loop ----------------
+for q in QUERIES:
+    channel = q["channel"]
+    type_ = q["type"]
+    nrql = q["nrql"]
+    api_key = q["api_key"]
+    account_id = q["account_id"]
+    nas_path = q["nas_path"]
+
+    # Ensure NAS path exists
+    os.makedirs(nas_path, exist_ok=True)
+
+    results = call_nrql(api_key, account_id, nrql)
+    
+    if results is None:
+        logging.error(f"{channel}_{type_} - API call failed after retries")
+        continue
+    if not results:
+        logging.warning(f"{channel}_{type_} - No data returned")
+        continue
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    file_name = f"NR_{channel}_{type_}_{timestamp}.csv"
+    file_path = os.path.join(nas_path, file_name)
+
+    try:
+        with open(file_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=results[0].keys())
+            writer.writeheader()
+            writer.writerows(results)
+        logging.info(f"{channel}_{type_} - CSV written: {file_path}")
+    except Exception as e:
+        logging.error(f"{channel}_{type_} - Failed to write CSV: {e}")
+
+
