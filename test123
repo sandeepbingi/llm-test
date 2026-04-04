@@ -1,0 +1,335 @@
+Problem Statement
+Our organization depends on multiple operational and observability platforms such as ServiceNow, Splunk, New Relic, and Confluence to investigate incidents, understand system behavior, and access troubleshooting knowledge. Today, these systems are used independently, which forces engineers and support teams to manually move across tools to collect incident details, logs, metrics, traces, recent changes, and relevant runbooks.
+
+This creates a fragmented investigation process where the user may start with only partial information, such as an incident number, transaction ID, session ID, or correlation ID, but still has to manually determine where to search next and how to connect the findings across systems. That manual correlation slows triage, increases cognitive load, and can delay accurate root-cause identification and remediation.
+
+In addition, the same investigation steps are often repeated across incidents, and valuable context remains distributed across ticketing systems, log platforms, observability tools, and documentation repositories. As a result, the organization is not fully leveraging its existing tooling investments to provide a unified and efficient incident-analysis experience.
+
+Proposed Solution
+Build a centralized incident analysis assistant that enables users to investigate issues through a single conversational interface and retrieve correlated information from ServiceNow, Splunk, New Relic, and Confluence. The assistant should support both single-shot analysis, where the user provides all details in one prompt, and guided multi-prompt analysis, where the user starts with partial context and provides additional details over multiple turns.
+
+The solution will allow a user to begin with whatever identifier is available — for example an incident number, change number, transaction ID, session ID, or correlation ID — and then automatically retrieve or ask for the next most useful information needed to continue the investigation. The assistant will combine ticket context, logs, metrics, traces, and runbook content into one unified response that highlights findings, probable cause, and recommended next steps.
+
+Why MCP
+To implement this in a scalable and standardized way, we can use the Model Context Protocol (MCP) as the integration pattern across enterprise systems. MCP follows a host-client-server architecture where an MCP host connects to one or more MCP servers, with one MCP client maintaining a dedicated connection to each server, allowing the host to discover and invoke tools across systems through a consistent protocol.
+
+This is a strong fit for our use case because each enterprise platform can be exposed as its own MCP server, while the central assistant acts as the MCP host that orchestrates calls across those systems. MCP uses a common JSON-RPC-based interaction model and supports transports such as streamable HTTP, which enables remote integrations with standard authentication methods including bearer tokens, API keys, and custom headers.
+
+How MCP solves the problem
+Using MCP, we can expose each platform as a standardized capability provider rather than building one-off custom integrations for every AI workflow. In this model, ServiceNow, Splunk, New Relic, and Confluence each provide tools and contextual resources through their own MCP servers, and the assistant can dynamically discover and invoke them as needed.
+
+This approach creates a clean separation of responsibilities:
+
+The assistant/orchestrator manages conversation flow, intent understanding, slot filling, correlation, and response generation.
+
+Each MCP server exposes system-specific tools such as incident lookup, log search, metric retrieval, or runbook search.
+
+The end user interacts only with one conversational experience rather than manually switching across tools.
+
+Target MCP Architecture
+The proposed design is:
+
+A chat or agent interface as the user entry point.
+
+A central incident-analysis orchestrator acting as the MCP host.
+
+One MCP client connection per backend system.
+
+Dedicated MCP servers for:
+
+ServiceNow for incidents, changes, related records, and ticket context.
+
+Splunk for logs, correlation searches, and observability data access through the MCP gateway.
+
+New Relic for service metrics, health signals, traces, and deployment context.
+
+Confluence for runbooks, support documentation, and known issue references.
+
+A correlation layer that normalizes findings from all systems into one incident-analysis model.
+
+Platform-specific MCP alignment
+This solution is also practical because the platforms we discussed already align well with MCP-style integration.
+
+ServiceNow supports adding MCP servers in AI Agent Studio, where MCP servers can be authenticated, governed, and made available to agents as tools. ServiceNow documentation explicitly notes that MCP servers simplify integration and improve security and governance for AI agent access.
+
+Splunk provides an MCP gateway over streamable HTTP and supports token- and header-based access for Splunk platform and Splunk Observability Cloud tools, making it well suited for log and observability retrieval in this architecture.
+
+This means we are not proposing a purely theoretical design; we are aligning with capabilities that already exist in the ecosystem.
+
+User Experience Model
+The assistant should support two user interaction styles:
+
+Single-shot incident analysis: the user provides all available details in one prompt and the assistant immediately runs the full analysis workflow.
+
+Guided multi-prompt incident analysis: the user starts with limited information, and the assistant asks focused follow-up questions only when needed to continue the workflow. Multi-turn workflow designs are well suited for cases where context is incomplete at the start and must be built progressively.
+
+This hybrid model reflects real-world incident operations, where users often begin with only partial context and refine the investigation over time.
+
+Example Workflow
+Example user journey:
+
+A user provides an incident number, correlation ID, transaction ID, or session ID.
+
+The assistant determines which MCP tools to invoke first.
+
+ServiceNow tools retrieve incident or change context.
+
+Splunk tools retrieve relevant logs using the provided identifiers and index.
+
+New Relic tools retrieve metrics, traces, and service health signals.
+
+Confluence tools retrieve runbooks or known issue documentation.
+
+The assistant correlates the evidence and returns:
+
+incident summary,
+
+impacted service,
+
+recent change or deployment context,
+
+top error signatures,
+
+metric anomalies,
+
+likely cause,
+
+recommended next steps.
+
+Expected Benefits
+Implementing this solution should provide the following benefits:
+
+Reduced manual effort during incident investigation.
+
+Faster access to incident, log, and metric context from one place.
+
+Better reuse of knowledge through Confluence integration.
+
+More consistent triage workflows across teams.
+
+Improved response quality through correlated evidence rather than isolated tool views.
+
+Better leverage of existing ServiceNow, Splunk, New Relic, and Confluence investments.
+
+Recommended Implementation Direction
+A practical delivery approach is to start with:
+
+ServiceNow + Splunk for incident context and log retrieval first, because those two systems cover the core triage path and already align strongly with MCP integration patterns.
+
+Add New Relic next for metrics, traces, and deployment correlation.
+
+Add Confluence after that for runbook and knowledge integration.
+
+This phased approach reduces implementation risk while still delivering early value.
+
+Suggested Closing Statement
+The proposed solution is to build a hybrid incident-analysis assistant powered by MCP-based integrations, enabling users to retrieve and correlate operational data across ServiceNow, Splunk, New Relic, and Confluence through a single conversational experience. By standardizing system access through MCP and supporting both single-shot and multi-prompt workflows, this initiative can improve investigation speed, reduce operational friction, and create a more scalable foundation for AI-assisted incident response.
+
+
+
+Hybrid Incident Analysis Assistant using MCP
+Overview
+Our teams currently use multiple enterprise platforms such as ServiceNow, Splunk, New Relic, and Confluence to investigate incidents, review operational data, and access troubleshooting documentation. These systems are valuable individually, but incident investigation today is still fragmented because engineers must manually move between tools, search using different identifiers, and correlate findings on their own.
+
+This proposal describes a unified Hybrid Incident Analysis Assistant that enables users to retrieve and analyze incident-related information from multiple systems through a single conversational experience. The solution uses Model Context Protocol (MCP) as the integration pattern so that each enterprise system can expose tools in a consistent, governed, and scalable way.
+
+Problem
+When an incident occurs, users often begin with only partial context such as an incident number, transaction ID, session ID, correlation ID, or service name. To complete the investigation, they must manually navigate ServiceNow for incident and change details, Splunk for logs, New Relic for metrics and traces, and Confluence for runbooks or known issue documentation.
+
+This creates several operational challenges:
+
+Investigation is slower because context is spread across multiple systems.
+
+Engineers spend time gathering information instead of analyzing the issue.
+
+Important evidence can be missed because correlation is manual.
+
+Repeated investigation steps are performed across teams without a standardized workflow.
+
+Existing platform investments are not fully leveraged as one connected operational experience.
+
+Proposed Solution
+Build a centralized Hybrid Incident Analysis Assistant that supports two interaction modes:
+
+Single-shot incident analysis — the user provides all known details in one prompt.
+
+Guided multi-prompt incident analysis — the user starts with partial information, and the assistant asks only the next most useful follow-up question.
+
+The assistant will allow users to start with any available identifier, such as:
+
+Incident number
+
+Change number
+
+Transaction ID
+
+Session ID
+
+Correlation ID
+
+Service name
+
+Environment
+
+Splunk index
+
+The system will then retrieve and correlate data across ServiceNow, Splunk, New Relic, and Confluence and return a unified response with the most relevant findings.
+
+Why MCP
+MCP follows a host-client-server architecture where a host can manage multiple client connections to different MCP servers, and those servers expose tools, resources, and prompts through a standardized protocol built on JSON-RPC. This architecture is designed to integrate AI applications with external systems while maintaining security boundaries and modularity.
+
+This makes MCP a strong fit for our use case because we can expose each enterprise platform as a dedicated MCP server and allow the assistant to orchestrate them through one unified interface rather than building separate custom connectors for every workflow. The MCP host acts as the coordinator, while each system-specific MCP server provides the controlled capabilities needed for incident analysis.
+
+Architecture
+The proposed architecture consists of the following components:
+
+Chat or agent interface for user interaction
+
+Conversation and orchestration layer to manage prompts, slot filling, planning, and synthesis
+
+MCP host/orchestrator that connects to multiple backend MCP servers
+
+Dedicated MCP servers for ServiceNow, Splunk, New Relic, and Confluence
+
+Correlation layer that combines evidence into one normalized incident-analysis model
+
+MCP server responsibilities
+ServiceNow MCP server: incident details, change details, related records, CI context, work notes.
+
+Splunk MCP server: logs, correlation searches, transaction searches, and observability data through the MCP gateway.
+
+New Relic MCP server: metrics, traces, service health, deployment markers.
+
+Confluence MCP server: runbooks, known issues, support documentation.
+
+How the workflow works
+Single-shot mode
+In this mode, the user provides all relevant details in one message, such as incident number, transaction ID, correlation ID, environment, and index. The assistant then immediately invokes the relevant MCP tools, retrieves evidence from all appropriate systems, correlates the results, and returns a summarized analysis.
+
+Guided multi-prompt mode
+In this mode, the user begins with partial information, such as only an incident number or only a correlation ID. The assistant maintains conversation state, identifies missing but useful context, and asks focused follow-up questions one at a time until enough information is available to proceed. The host layer is responsible for coordinating these multi-step workflows while preserving security and context boundaries across connected systems.
+
+Example user journey
+The user provides an incident number, transaction ID, session ID, or correlation ID.
+
+The assistant determines which MCP tools to invoke first.
+
+ServiceNow provides incident or change context.
+
+Splunk retrieves logs and related search results.
+
+New Relic provides relevant metrics, traces, and health signals.
+
+Confluence provides runbooks or known issue guidance.
+
+The assistant correlates all evidence and produces a unified response with findings and next steps.
+
+Expected output
+The final assistant response should include:
+
+Incident summary
+
+Service or application involved
+
+Related change or deployment context
+
+Key log findings and error signatures
+
+Metric or trace anomalies
+
+Likely root-cause hypothesis
+
+Recommended next actions
+
+Relevant runbook or documentation references
+
+Platform alignment
+This approach is practical because key platforms in our ecosystem already support or align strongly with MCP patterns.
+
+ServiceNow documentation states that MCP servers can be added in AI Agent Studio, and that the MCP server governs ingress traffic and improves security, governance, and service discovery for AI agents.
+
+ServiceNow AI Agent Studio also supports approval-based server onboarding and OAuth-based authentication flows for MCP integrations.
+
+Splunk provides an MCP server/gateway model for Splunk platform and observability access, making it a strong fit for log and telemetry retrieval in this architecture.
+
+Benefits
+This solution is expected to provide the following benefits:
+
+Faster incident triage by reducing manual context gathering.
+
+A single operational interface across multiple systems.
+
+Better correlation of incidents, logs, metrics, and knowledge.
+
+More consistent investigation workflows across teams.
+
+Better governance and modular integration through MCP.
+
+Improved reuse of existing runbooks and operational knowledge through Confluence.
+
+MVP Scope
+Recommended MVP scope:
+
+Build the assistant with read-only access first.
+
+Integrate ServiceNow for incident and change context.
+
+Integrate Splunk for log retrieval and identifier-based search.
+
+Support both single-shot and guided multi-prompt analysis.
+
+Return summary, evidence, probable cause, and next-step recommendations.
+
+After MVP:
+
+Add New Relic for metrics and trace correlation.
+
+Add Confluence for runbooks and known issue retrieval.
+
+Add advanced confidence scoring and incremental enrichment.
+
+Implementation Direction
+Recommended phased implementation:
+
+Phase 1
+Define prompt contract and incident-analysis schema.
+
+Build orchestration layer and conversation state management.
+
+Implement ServiceNow MCP server integration.
+
+Implement Splunk MCP server integration.
+
+Phase 2
+Add multi-prompt slot filling and follow-up questioning.
+
+Add normalization and evidence correlation.
+
+Generate unified incident summaries.
+
+Phase 3
+Add New Relic metrics and traces.
+
+Add Confluence runbook and knowledge retrieval.
+
+Improve hypothesis ranking and guided recommendations.
+
+Phase 4
+Add governance, observability, audit trails, and production hardening.
+
+Risks and considerations
+Key considerations for implementation:
+
+Authentication and authorization must be controlled per backend system.
+
+Read and write actions should be separated, with MVP limited to read-only access.
+
+Splunk searches should be governed through approved indexes, bounded time windows, and tool-level access controls.
+
+Sensitive data should be redacted before it is passed into LLM reasoning.
+
+Conversation state should be carefully managed to support multi-prompt workflows without ambiguity.
+
+Recommendation
+Proceed with a phased implementation of a Hybrid Incident Analysis Assistant using MCP as the integration pattern. Start with ServiceNow and Splunk for the MVP, then extend to New Relic and Confluence to deliver a complete cross-system investigation experience. This approach provides immediate operational value while creating a scalable foundation for enterprise AI-assisted incident response.
+
